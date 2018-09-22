@@ -1,0 +1,134 @@
+﻿@using Newtonsoft.Json
+@model object
+
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "AddClaimsToRole";
+    List<MyRole> roles = ViewBag.Roles;
+    List<Claims> claimses = ViewBag.Claimses;
+}
+
+<h2>AddClaimsToRole</h2>
+
+<div>
+    <ul>
+        @{
+            foreach (var role in roles)
+            {
+                <li onclick="showDialog('@role.Name')">@role.Name</li>
+            }
+        }
+    </ul>
+
+    <div class="dialog">
+        <div class="cancel" onclick="cancel()">
+            取消
+        </div>
+        <h5 id="role"></h5>
+        <form>
+            @{
+                foreach (var group in claimses.GroupBy(o => o.Key))
+                {
+                    <h4>@group.ElementAt(0).Key</h4>
+                    foreach (var claims in group)
+                    {
+                        <label>@claims.Value<input type="checkbox" name="@claims.Key" value="@claims.Value" class="claims" /></label>
+                    }
+                }
+            }
+        </form>
+        <input type="button" value="确定" onclick="submit()"/>
+
+    </div>
+</div>
+<div>
+
+</div>
+
+
+<script>
+
+    var roles, claims, roleName;
+
+
+    var makeArray = function(obj){
+        return Array.prototype.slice.call(obj,0);
+    }
+
+    function showDialog(roleName) {
+
+        /*var role = roles.filter(function(o) {
+            return o.Name === roleName;
+        })[0];*/
+        window.roleName = roleName;
+
+        $("#role").html(roleName)
+
+        $.post("/auth/GetRoleClaims",
+            { roleName },
+            function(data) {
+                $('.claims').each(function(i, item) {
+                    item.checked = false;
+                    if (data.filter(o => o.type === item.name && o.value===item.value).length > 0) {
+                        item.checked = true;
+                    }
+                });
+            });
+
+        $('.dialog').show();
+    }
+
+    function submit() {
+        var checkedClaims = makeArray(document.querySelectorAll('.claims')).filter(o => o.checked).map(o => {
+            return {Key:o.name,Value:o.value}
+        })
+
+        console.log(checkedClaims)
+
+        $.post("/auth/SetRoleClaims",
+            { roleName: roleName, claimsStr: JSON.stringify(checkedClaims) },
+            function(data) {
+                if (data === 'true') {
+                    alert('success');
+                    $('.dialog').hide();
+                }
+            });
+
+    }
+
+    function cancel() {
+        $('.dialog').hide()
+    }
+
+    window.onload = function() {
+        roles = JSON.parse('@(Html.Raw(JsonConvert.SerializeObject(roles)))');
+        claims = JSON.parse('@(Html.Raw(JsonConvert.SerializeObject(claimses)))');
+    }
+
+</script>
+
+<style>
+    .dialog {
+        width: 700px;
+        height: 500px;
+        background-color: #efefef;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: 0;
+        margin: auto;
+        display: none;
+        box-sizing: border-box;
+        padding: 10px;
+    }
+
+    .cancel {
+        position: absolute;
+        right: 0;
+        top: 0;
+        text-align: center;
+        width: 40px;
+        height: 20px;
+    }
+</style>
